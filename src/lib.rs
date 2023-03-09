@@ -37,7 +37,7 @@ fn result_to_html_table(result: QueryResult) -> String {
                     if column == "data" {
                         html += &format!(
                             "<td><textarea rows=10 cols=50>{}</textarea></td>",
-                            prepare(&row.cells[column])
+                            row.cells[column]
                         );
                     } else {
                         html += &format!("<td>{}</td>", prepare(&row.cells[column]));
