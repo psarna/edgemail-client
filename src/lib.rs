@@ -34,7 +34,14 @@ fn result_to_html_table(result: QueryResult) -> String {
             for row in result.rows {
                 html += "<tr style=\"border: 1px solid\">";
                 for column in &result.columns {
-                    html += &format!("<td>{}</td>", prepare(&row.cells[column]));
+                    if column == "data" {
+                        html += &format!(
+                            "<td><textarea rows=10 cols=50>{}</textarea></td>",
+                            prepare(&row.cells[column])
+                        );
+                    } else {
+                        html += &format!("<td>{}</td>", prepare(&row.cells[column]));
+                    }
                 }
                 html += "</tr>";
             }
@@ -47,8 +54,11 @@ fn result_to_html_table(result: QueryResult) -> String {
 async fn serve(db: &impl libsql_client::Connection) -> anyhow::Result<String> {
     let response = db.execute("SELECT * FROM mail ORDER BY rowid DESC").await?;
     let table = result_to_html_table(response);
-    let html =
-        format!("{table} <footer>Made by <a href=\"https://bio.sarna.dev\">sarna</a></footer>");
+    let style =
+        "<link rel=\"stylesheet\" href=\"https://unpkg.com/papercss@1.9.1/dist/paper.min.css\"/>";
+    let intro = "<h3>sorry@idont.date</h3><p>Subscribe to any e-mail in the domain @idont.date and receive it here!</p><br>";
+    let footer = "<footer>Made by <a href=\"https://bio.sarna.dev\">sarna</a>, powered by <a href=\"https://chiselstrike.com\">Turso</a></footer>";
+    let html = format!("{style}{intro}{table}{footer}");
     Ok(html)
 }
 
