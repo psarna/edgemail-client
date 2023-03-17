@@ -1,4 +1,4 @@
-use libsql_client::{QueryResult, Value};
+use libsql_client::{params, QueryResult, Statement, Value};
 use worker::*;
 
 mod utils;
@@ -16,30 +16,29 @@ fn log_request(req: &Request) {
 
 fn prepare(v: &Value) -> String {
     if let Value::Text(t) = v {
-        t.replace('<', "").replace('>', "")
+        t.replace(['<', '>'], "")
     } else {
         v.to_string()
     }
 }
 
-// Take a query result and render it into a HTML table
-fn result_to_html_table(result: QueryResult) -> String {
+fn inbox_to_html(result: QueryResult) -> String {
     let mut html = "<table style=\"border: 1px solid\">".to_string();
     match result {
         QueryResult::Error((msg, _)) => return format!("Error: {msg}"),
         QueryResult::Success((result, _)) => {
             for column in &result.columns {
-                html += &format!("<th style=\"border: 1px solid\">{column}</th>");
+                if column != "id" {
+                    html += &format!("<th style=\"border: 1px solid\">{column}</th>");
+                }
             }
             for row in result.rows {
-                html += "<tr style=\"border: 1px solid\">";
+                let id = &row.cells["id"];
+                html += &format!(
+                    "<tr style=\"border: 1px solid\" onclick=\"window.location='./inbox/{id}'\">"
+                );
                 for column in &result.columns {
-                    if column == "data" {
-                        html += &format!(
-                            "<td><textarea rows=10 cols=50>{}</textarea></td>",
-                            row.cells[column]
-                        );
-                    } else {
+                    if column != "id" {
                         html += &format!("<td>{}</td>", prepare(&row.cells[column]));
                     }
                 }
@@ -51,14 +50,61 @@ fn result_to_html_table(result: QueryResult) -> String {
     html
 }
 
-async fn serve(db: &impl libsql_client::Connection) -> anyhow::Result<String> {
-    let response = db.execute("SELECT * FROM mail ORDER BY rowid DESC").await?;
-    let table = result_to_html_table(response);
+fn msg_to_html(result: QueryResult) -> String {
+    let mut html = "<table style=\"border: 1px solid\">".to_string();
+    let msg_body = match result {
+        QueryResult::Error((msg, _)) => return format!("Error: {msg}"),
+        QueryResult::Success((result, _)) => {
+            for column in &result.columns {
+                if column != "data" {
+                    html += &format!("<th style=\"border: 1px solid\">{column}</th>");
+                }
+            }
+            result.rows.first().map(|row| {
+                html += "<tr style=\"border: 1px solid\">";
+                for column in &result.columns {
+                    if column != "data" {
+                        html += &format!("<td>{}</td>", prepare(&row.cells[column]));
+                    }
+                }
+                html += "</tr>";
+                row.cells["data"].to_string()
+            })
+        }
+    };
+    html += "</table>";
+    if let Some(msg_body) = msg_body {
+        html += &format!("<textarea rows=100 style=\"width: 100%\">{msg_body}</textarea>");
+    }
+    html
+}
+
+async fn serve_inbox(db: &impl libsql_client::Connection) -> anyhow::Result<String> {
+    let response = db
+        .execute("SELECT rowid as id, date, sender, recipients FROM mail ORDER BY rowid DESC")
+        .await?;
+    let table = inbox_to_html(response);
     let style =
         "<link rel=\"stylesheet\" href=\"https://unpkg.com/papercss@1.9.1/dist/paper.min.css\"/>";
     let intro = "<h3>sorry@idont.date</h3><p>Subscribe to any e-mail in the domain @idont.date and receive it here!</p><br>";
     let footer = "<footer>Made by <a href=\"https://bio.sarna.dev\">sarna</a>, powered by <a href=\"https://chiselstrike.com\">Turso</a></footer>";
-    let html = format!("{style}{intro}{table}{footer}");
+    let html = format!("{style}{intro}{table}<br>{footer}");
+    Ok(html)
+}
+
+async fn serve_msg(db: &impl libsql_client::Connection, id: i64) -> anyhow::Result<String> {
+    let response = db
+        .execute(Statement::with_params(
+            "SELECT date, sender, recipients, data FROM mail WHERE rowid = ?",
+            params!(id),
+        ))
+        .await?;
+    let table = msg_to_html(response);
+    let style =
+        "<link rel=\"stylesheet\" href=\"https://unpkg.com/papercss@1.9.1/dist/paper.min.css\"/>";
+    let intro = "<h3>sorry@idont.date</h3><p>Subscribe to any e-mail in the domain @idont.date and receive it here!</p><br>";
+    let footer = "<footer>Made by <a href=\"https://bio.sarna.dev\">sarna</a>, powered by <a href=\"https://chiselstrike.com\">Turso</a></footer>";
+    let html = format!("{style}{intro}{table}<br>{footer}");
     Ok(html)
 }
 
@@ -78,7 +124,24 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                     return Response::from_html(format!("Error establishing connection: {e}"));
                 }
             };
-            match serve(&db).await {
+            match serve_inbox(&db).await {
+                Ok(html) => Response::from_html(html),
+                Err(e) => Err(Error::from(format!("{e}"))),
+            }
+        })
+        .get_async("/inbox/:id", |_req, ctx| async move {
+            let db = match libsql_client::workers::Connection::connect_from_ctx(&ctx) {
+                Ok(db) => db,
+                Err(e) => {
+                    console_log!("Error {e}");
+                    return Response::from_html(format!("Error establishing connection: {e}"));
+                }
+            };
+            let id: i64 = match ctx.param("id").and_then(|id| id.parse::<i64>().ok()) {
+                Some(id) => id,
+                None => return Response::from_html("Missing message id: /inbox/<X>"),
+            };
+            match serve_msg(&db, id).await {
                 Ok(html) => Response::from_html(html),
                 Err(e) => Err(Error::from(format!("{e}"))),
             }
@@ -89,49 +152,4 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
         })
         .run(req, env)
         .await
-}
-
-#[cfg(test)]
-mod tests {
-    use libsql_client::{Connection, ResultSet, Value};
-    fn test_db() -> libsql_client::local::Connection {
-        libsql_client::local::Connection::in_memory().unwrap()
-    }
-
-    #[tokio::test]
-    async fn test_counter_updated() {
-        let db = test_db();
-
-        let payloads = [
-            ("waw", "PL", "Warsaw", (52.1672, 20.9679)),
-            ("waw", "PL", "Warsaw", (52.1672, 20.9679)),
-            ("waw", "PL", "Warsaw", (52.1672, 20.9679)),
-            ("hel", "FI", "Helsinki", (60.3183, 24.9497)),
-            ("hel", "FI", "Helsinki", (60.3183, 24.9497)),
-        ];
-
-        for p in payloads {
-            super::serve(p.0, p.1, p.2, p.3, &db).await.unwrap();
-        }
-
-        let ResultSet { columns, rows } = db
-            .execute("SELECT country, city, value FROM counter")
-            .await
-            .unwrap()
-            .into_result_set()
-            .unwrap();
-
-        assert_eq!(columns, vec!["country", "city", "value"]);
-        for row in rows {
-            let city = match &row.cells["city"] {
-                Value::Text(c) => c.as_str(),
-                _ => panic!("Invalid entry for a city: {:?}", row),
-            };
-            match city {
-                "Warsaw" => assert_eq!(row.cells["value"], 3.into()),
-                "Helsinki" => assert_eq!(row.cells["value"], 2.into()),
-                _ => panic!("Unknown city: {:?}", row),
-            }
-        }
-    }
 }
