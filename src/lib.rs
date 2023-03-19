@@ -51,32 +51,13 @@ fn inbox_to_html(result: QueryResult) -> String {
 }
 
 fn msg_to_html(result: QueryResult) -> String {
-    let mut html = "<table style=\"border: 1px solid\">".to_string();
     let msg_body = match result {
         QueryResult::Error((msg, _)) => return format!("Error: {msg}"),
         QueryResult::Success((result, _)) => {
-            for column in &result.columns {
-                if column != "data" {
-                    html += &format!("<th style=\"border: 1px solid\">{column}</th>");
-                }
-            }
-            result.rows.first().map(|row| {
-                html += "<tr style=\"border: 1px solid\">";
-                for column in &result.columns {
-                    if column != "data" {
-                        html += &format!("<td>{}</td>", prepare(&row.cells[column]));
-                    }
-                }
-                html += "</tr>";
-                row.cells["data"].to_string()
-            })
+            result.rows.first().map(|row| row.cells["data"].to_string())
         }
     };
-    html += "</table>";
-    if let Some(msg_body) = msg_body {
-        html += &format!("<textarea rows=100 style=\"width: 100%\">{msg_body}</textarea>");
-    }
-    html
+    msg_body.unwrap_or_else(|| "Error: no rows found".to_string())
 }
 
 async fn serve_inbox(db: &impl libsql_client::Connection) -> anyhow::Result<String> {
@@ -99,13 +80,7 @@ async fn serve_msg(db: &impl libsql_client::Connection, id: i64) -> anyhow::Resu
             params!(id),
         ))
         .await?;
-    let table = msg_to_html(response);
-    let style =
-        "<link rel=\"stylesheet\" href=\"https://unpkg.com/papercss@1.9.1/dist/paper.min.css\"/>";
-    let intro = "<h3>sorry@idont.date</h3><p>Subscribe to any e-mail in the domain @idont.date and receive it here!</p><br>";
-    let footer = "<footer>Made by <a href=\"https://bio.sarna.dev\">sarna</a>, powered by <a href=\"https://chiselstrike.com\">Turso</a></footer>";
-    let html = format!("{style}{intro}{table}<br>{footer}");
-    Ok(html)
+    Ok(msg_to_html(response))
 }
 
 #[event(fetch)]
