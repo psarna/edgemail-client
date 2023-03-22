@@ -43,7 +43,7 @@ fn inbox_to_html(result: QueryResult) -> String {
                     } else if column == "data" {
                         html += &format!(
                             "<textarea id=\"data{id}\" style=\"display:none\">{}</textarea>",
-                            prepare(&row.cells[column])
+                            &row.cells[column]
                         );
                     }
                 }
@@ -56,7 +56,7 @@ fn inbox_to_html(result: QueryResult) -> String {
 }
 
 async fn serve_inbox(db: &impl libsql_client::Connection, id: &str) -> anyhow::Result<String> {
-    let canonical_id = format!("<{}@idont.date>", id);
+    let canonical_id = format!("<{id}@idont.date>");
     let response = db
         .execute(Statement::with_params("SELECT rowid as id, date, sender, recipients, data FROM mail WHERE recipients = ? ORDER BY rowid DESC", params!(canonical_id)))
         .await?;
@@ -65,7 +65,7 @@ async fn serve_inbox(db: &impl libsql_client::Connection, id: &str) -> anyhow::R
         r#"
     <link rel="stylesheet" href="https://unpkg.com/papercss@1.9.1/dist/paper.min.css"/>
     <div style="margin:auto; width:50%">
-    <h3>sorry@idont.date</h3><h4>{id}'s inbox:</h4><br>
+    <h3>sorry@idont.date</h3><h4>{id}@idont.date's inbox:</h4><br>
     </div>
     {table}
     <br>
