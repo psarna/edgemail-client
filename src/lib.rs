@@ -35,15 +35,23 @@ fn inbox_to_html(result: QueryResult) -> String {
             for row in result.rows {
                 let id = &row.cells["id"];
                 html += &format!(
-                    "<tr style=\"border: 1px solid\" onclick=\"document.getElementById('datapanel').value = document.getElementById('data{id}').value\">"
+                    "<tr style=\"border: 1px solid\" onclick=\"document.getElementById('datapanel').innerHTML = document.getElementById('data{id}').value\">"
                 );
                 for column in &result.columns {
                     if column != "id" && column != "data" {
                         html += &format!("<td>{}</td>", prepare(&row.cells[column]));
                     } else if column == "data" {
+                        let contents = if let Value::Text(t) = &row.cells[column] {
+                            let start = t.find("<html").unwrap_or_else(|| {
+                                t.find("<HTML")
+                                    .unwrap_or_else(|| t.find("\r\n\r\n").unwrap_or(0))
+                            });
+                            &t[start..]
+                        } else {
+                            ""
+                        };
                         html += &format!(
-                            "<textarea id=\"data{id}\" style=\"display:none\">{}</textarea>",
-                            &row.cells[column]
+                            "<textarea id=\"data{id}\" style=\"display:none\">{contents}</textarea>",
                         );
                     }
                 }
@@ -51,7 +59,7 @@ fn inbox_to_html(result: QueryResult) -> String {
             }
         }
     };
-    html += "</table><textarea id=\"datapanel\" style=\"height: 50%; width: 80%; margin: auto\"></textarea>";
+    html += "</table><div id=\"datapanel\" style=\"height: 50%; width: 80%; margin: auto\"></div>";
     html
 }
 
