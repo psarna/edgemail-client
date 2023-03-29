@@ -1,4 +1,4 @@
-use libsql_client::{params, QueryResult, Statement, Value};
+use libsql_client::{params, Col, Statement, StmtResult, Value};
 use worker::*;
 
 mod utils;
@@ -15,55 +15,63 @@ fn log_request(req: &Request) {
 }
 
 fn prepare(v: &Value) -> String {
-    if let Value::Text(t) = v {
+    if let Value::Text { value: t } = v {
         t.replace(['<', '>'], "")
     } else {
         v.to_string()
     }
 }
 
-fn inbox_to_html(result: QueryResult) -> String {
+fn inbox_to_html(result: StmtResult) -> String {
     let mut html = "<table class=\"table-hover\" style=\"border: 1px solid\">".to_string();
-    match result {
-        QueryResult::Error((msg, _)) => return format!("Error: {msg}"),
-        QueryResult::Success((result, _)) => {
-            for column in &result.columns {
-                if column != "id" && column != "data" {
-                    html += &format!("<th style=\"border: 1px solid\">{column}</th>");
-                }
-            }
-            for row in result.rows {
-                let id = &row.cells["id"];
+
+    for Col { name: column } in &result.cols {
+        let column = column.as_deref().unwrap();
+        if column != "id" && column != "data" {
+            html += &format!("<th style=\"border: 1px solid\">{column}</th>");
+        }
+    }
+    let id_idx = result
+        .cols
+        .iter()
+        .position(|c| c.name.as_deref() == Some("id"))
+        .unwrap();
+    let data_idx = result
+        .cols
+        .iter()
+        .position(|c| c.name.as_deref() == Some("data"))
+        .unwrap();
+    for row in result.rows {
+        let id = &row[id_idx];
+        html += &format!(
+            "<tr style=\"border: 1px solid\" onclick=\"document.getElementById('datapanel').innerHTML = document.getElementById('data{id}').value\">"
+        );
+        for (cell_idx, cell) in row.iter().enumerate() {
+            if cell_idx != id_idx && cell_idx != data_idx {
+                html += &format!("<td>{}</td>", prepare(cell));
+            } else if cell_idx == data_idx {
+                let contents = if let Value::Text { value: t } = &cell {
+                    let start = t.find("<html").unwrap_or_else(|| {
+                        t.find("<HTML")
+                            .unwrap_or_else(|| t.find("\r\n\r\n").unwrap_or(0))
+                    });
+                    &t[start..]
+                } else {
+                    ""
+                };
                 html += &format!(
-                    "<tr style=\"border: 1px solid\" onclick=\"document.getElementById('datapanel').innerHTML = document.getElementById('data{id}').value\">"
+                    "<textarea id=\"data{id}\" style=\"display:none\">{contents}</textarea>",
                 );
-                for column in &result.columns {
-                    if column != "id" && column != "data" {
-                        html += &format!("<td>{}</td>", prepare(&row.cells[column]));
-                    } else if column == "data" {
-                        let contents = if let Value::Text(t) = &row.cells[column] {
-                            let start = t.find("<html").unwrap_or_else(|| {
-                                t.find("<HTML")
-                                    .unwrap_or_else(|| t.find("\r\n\r\n").unwrap_or(0))
-                            });
-                            &t[start..]
-                        } else {
-                            ""
-                        };
-                        html += &format!(
-                            "<textarea id=\"data{id}\" style=\"display:none\">{contents}</textarea>",
-                        );
-                    }
-                }
-                html += "</tr>";
             }
         }
-    };
+        html += "</tr>";
+    }
+
     html += "</table><div id=\"datapanel\" style=\"height: 50%; width: 80%; margin: auto\"></div>";
     html
 }
 
-async fn serve_inbox(db: &impl libsql_client::Connection, id: &str) -> anyhow::Result<String> {
+async fn serve_inbox(db: &impl libsql_client::DatabaseClient, id: &str) -> anyhow::Result<String> {
     let canonical_id = format!("<{id}@idont.date>");
     let response = db
         .execute(Statement::with_params("SELECT rowid as id, date, sender, recipients, data FROM mail WHERE recipients = ? ORDER BY rowid DESC", params!(canonical_id)))
@@ -73,12 +81,11 @@ async fn serve_inbox(db: &impl libsql_client::Connection, id: &str) -> anyhow::R
         r#"
     <link rel="stylesheet" href="https://unpkg.com/papercss@1.9.1/dist/paper.min.css"/>
     <div style="margin:auto; width:50%">
-    <h3>sorry@idont.date</h3><h4>{id}@idont.date's inbox:</h4><br>
+    <h3>sorry@idont.date</h3><h4>{id}@idont.date's inbox:</h4><h5>Made by <a href="https://bio.sarna.dev">sarna</a>, powered by <a href="https://chiselstrike.com">Turso</a></h5><br>
     </div>
     {table}
     <br>
     <div style="margin:auto; width:50%">
-    <footer>Made by <a href=\"https://bio.sarna.dev\">sarna</a>, powered by <a href=\"https://chiselstrike.com\">Turso</a></footer>
     "#
     ))
 }
@@ -92,7 +99,7 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
     router
         .get_async("/inbox/:id", |_req, ctx| async move {
-            let db = match libsql_client::workers::Connection::connect_from_ctx(&ctx) {
+            let db = match libsql_client::workers::Client::from_ctx(&ctx) {
                 Ok(db) => db,
                 Err(e) => {
                     console_log!("Error {e}");
@@ -119,8 +126,7 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
               <input type="text" id="inbox" name="inbox" placeholder="test1">
               <button type="button" onclick="window.location.href= './inbox/' + (document.getElementById('inbox').value || 'test1')">Go to Inbox</button>
             </form>
-            <br>
-            <footer>Made by <a href=\"https://bio.sarna.dev\">sarna</a>, powered by <a href=\"https://chiselstrike.com\">Turso</a></footer>
+            <h5>Made by <a href="https://bio.sarna.dev">sarna</a>, powered by <a href="https://chiselstrike.com">Turso</a></h5>
             </div>
             "#)
         })
