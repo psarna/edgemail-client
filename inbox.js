@@ -20,18 +20,31 @@ function _0x11e6() { var _0x2c9f0d = ['1003093NkzhkS', '18XsQUQq', '2qFIiPt', '4
 
 req.send(JSON.stringify({ statements: [{ q: "SELECT date, sender, recipients, data FROM mail WHERE recipients = ? ORDER BY ROWID DESC LIMIT ? OFFSET ?", params: ["<" + user + "@idont.date>", PAGE_SIZE, offset] }] }));
 
+// Some of these rules are heavily inspired by https://www.npmjs.com/package/quoted-printable:
+// FIXME: proper sanitizer should read the encoding from the headers or deduce it,
+// and then apply it accordingly.
 function sanitize(s) {
     const position = s.indexOf('<html') || s.indexOf('<HTML') || s.indexOf('\r\n\r\n');
     return s
         .substring(position)
-        .replaceAll('=09', '')
-        .replaceAll("=0A", "\n")
-        .replaceAll("=2C", ",")
-        .replaceAll('=3D', '=')
         .replaceAll('=E2=80=8A', '')
         .replaceAll('=E2=80=8B', '')
         .replaceAll('=E2=80=8C', '')
-        .replaceAll('=\r\n', '');
+        .replaceAll('=C2=A0', '<br>')
+        .replaceAll('=E2=80=99', "'")
+        .replaceAll(/[\t\x20]$/gm, '')
+        // Remove hard line breaks preceded by `=`. Proper `Quoted-Printable`-
+        // encoded data only contains CRLF line  endings, but for compatibility
+        // reasons we support separate CR and LF too.
+        .replaceAll(/=(?:\r\n?|\n|$)/g, '')
+        // Decode escape sequences of the form `=XX` where `XX` is any
+        // combination of two hexidecimal digits. For optimal compatibility,
+        // lowercase hexadecimal digits are supported as well. See
+        // https://tools.ietf.org/html/rfc2045#section-6.7, note 1.
+        .replaceAll(/=([a-fA-F0-9]{2})/g, function (_match, target) {
+            var codePoint = parseInt(target, 16);
+            return String.fromCharCode(codePoint);
+        });
 }
 
 function createTable(data) {
