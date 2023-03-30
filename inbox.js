@@ -24,6 +24,7 @@ function sanitize(s) {
     const position = s.indexOf('<html') || s.indexOf('<HTML') || s.indexOf('\r\n\r\n');
     return s
         .substring(position)
+        .replaceAll('=3D', '=')
         .replaceAll('=E2=80=8A', '')
         .replaceAll('=E2=80=8B', '')
         .replaceAll('=E2=80=8C', '')
@@ -50,7 +51,6 @@ function createTable(data) {
     thead.appendChild(tr);
     table.appendChild(thead);
     for (const row of data.rows) {
-        console.log(row)
         const tr = document.createElement('tr');
         const td1 = document.createElement('td');
         const td2 = document.createElement('td');
@@ -63,7 +63,6 @@ function createTable(data) {
         tr.appendChild(td2);
         tr.appendChild(td3);
         tr.onclick = () => {
-            console.log(sanitize(row[3]))
             document.getElementById('datapanel').innerHTML = sanitize(row[3]);
         }
         tbody.appendChild(tr);
