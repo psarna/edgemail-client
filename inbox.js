@@ -24,6 +24,9 @@ function sanitize(s) {
     const position = s.indexOf('<html') || s.indexOf('<HTML') || s.indexOf('\r\n\r\n');
     return s
         .substring(position)
+        .replaceAll('=09', '')
+        .replaceAll("=0A", "\n")
+        .replaceAll("=2C", ",")
         .replaceAll('=3D', '=')
         .replaceAll('=E2=80=8A', '')
         .replaceAll('=E2=80=8B', '')
