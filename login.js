@@ -3,7 +3,7 @@ const adjectives = [
   "fierce",
   "cuddly",
   "graceful",
-  "hard-working",
+  "working",
   "sleek",
   "wild",
   "sly",
