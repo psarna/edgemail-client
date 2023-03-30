@@ -15,18 +15,14 @@
             All inboxes are public.<br>Old e-mails get automatically deleted.
         </p>
         <p>Choose your username:</p>
-        <form
-            style="display: flex; align-items: center; justify-content: center"
-            action="javascript:window.location.href= './inbox.html?user=' + (document.getElementById('inbox').value || 'test1')">
+        <form id="inbox_form" style="display: flex; align-items: center; justify-content: center" action="javascript:go_to_inbox()">
             <input type="text" id="inbox" name="inbox" placeholder="test1">
-            <button type="button"
-                onclick="window.location.href= './inbox.html?user=' + (document.getElementById('inbox').value || 'test1')">Go
-                to
-                Inbox</button>
+            <button type="button" id="inbox_button">Go to Inbox</button>
         </form>
         <h5>Made by <a href="https://bio.sarna.dev">sarna</a>, powered by <a href="https://chiselstrike.com">Turso</a>
         </h5>
     </div>
 </body>
+<script src="login.js" defer></script>
 
 </html>
