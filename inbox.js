@@ -2,7 +2,7 @@ const PAGE_SIZE = 5;
 const urlParams = new URLSearchParams(window.location.search);
 const user = urlParams.get('user');
 const offset = parseInt(urlParams.get('offset')) || 0;
-document.getElementById('title').innerHTML = user + "@idont.date's inbox";
+document.getElementById('title').innerHTML = user + "@idont.date";
 
 if (offset > 0) {
     const prev = document.getElementById('prev');
