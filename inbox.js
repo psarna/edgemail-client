@@ -105,6 +105,17 @@ function createTable(data) {
         }
         tbody.appendChild(tr);
     }
+    if (data.rows.length == 0) {
+        const tr = document.createElement('tr');
+        const div = document.createElement('div');
+        div.style.textAlign = 'center';
+        const h = document.createElement('h4');
+        h.innerHTML = "No e-mails for " + user + "@idont.date yet! <br> &#8635; refresh";
+        h.onclick = _ => window.location.reload();
+        div.appendChild(h);
+        tr.appendChild(div);
+        tbody.appendChild(tr);
+    }
     table.appendChild(tbody);
     return table;
 }
