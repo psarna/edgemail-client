@@ -16,7 +16,7 @@ document.getElementById('current_page').innerHTML = "page " + Math.floor(offset 
 const req = new XMLHttpRequest();
 const url = 'https://spin-psarna.turso.io';
 req.open("POST", url);
-const readonly_token = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicm8iLCJleHAiOjE2ODI0MzIyNjYsImlhdCI6MTY4MTgyNzQ2NiwiaWQiOiI3MjJjYjJhMS1jYzcwLTExZWQtYWQzYy04ZWE1YTA2NzJiYzYifQ.vIvuPzD_kPtdauM4cHJMzxO-jLy3ZavnIN2SH9SugCDf6c4AnW35EA_wOfESdUuXX2skaolTPpV0f3Im8CS-Dw";
+const readonly_token = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicm8iLCJpYXQiOjE2ODE4MjkxNDMsImlkIjoiNzIyY2IyYTEtY2M3MC0xMWVkLWFkM2MtOGVhNWEwNjcyYmM2In0.T55UgAMs9vP2zMI_AhOiD2AONj_bsnDNRjZiBBWUb2gKU5MEjJoW8uHbtMGqpJ0312SULpsWTWdEJ886oSjGCQ";
 req.setRequestHeader('Authorization', 'Bearer ' + readonly_token)
 
 req.send(JSON.stringify({ statements: [{ q: "SELECT date, sender, recipients, data FROM mail WHERE recipients = ? ORDER BY ROWID DESC LIMIT ? OFFSET ?", params: ["<" + user + "@idont.date>", PAGE_SIZE, offset] }] }));
