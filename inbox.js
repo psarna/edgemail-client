@@ -16,7 +16,8 @@ document.getElementById('current_page').innerHTML = "page " + Math.floor(offset 
 const req = new XMLHttpRequest();
 const url = 'https://spin-psarna.turso.io';
 req.open("POST", url);
-function _0x11e6() { var _0x2c9f0d = ['1003093NkzhkS', '18XsQUQq', '2qFIiPt', '460997IHEnik', '1582009HwZhNs', '65xaAQkH', '20ezKShE', '23424RLlkTt', 'setRequestHeader', '3475825CFJvMy', '417vSBffS', '136uugIFq', '11348UGcNih', 'Bearer\x20eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE2ODAxNjU2MjksImlkIjoiNzIyY2IyYTEtY2M3MC0xMWVkLWFkM2MtOGVhNWEwNjcyYmM2In0.DGf7AACRX1fF1q_R06GRmZtVZYRgS53rKw12MaytmO3SpItIlnWK6WC2zBpkug_g903V4wwUPrqOTXT62zacAg', '236358QPXvGc']; _0x11e6 = function () { return _0x2c9f0d; }; return _0x11e6(); } function _0x45a0(_0x291977, _0x4a74ca) { var _0x11e681 = _0x11e6(); return _0x45a0 = function (_0x45a0b0, _0x1d6b21) { _0x45a0b0 = _0x45a0b0 - 0x1c9; var _0x4db815 = _0x11e681[_0x45a0b0]; return _0x4db815; }, _0x45a0(_0x291977, _0x4a74ca); } var _0x3c1192 = _0x45a0; (function (_0x18febe, _0x3bc470) { var _0x249a1b = _0x45a0, _0xd84c2c = _0x18febe(); while (!![]) { try { var _0x4f6acb = -parseInt(_0x249a1b(0x1cc)) / 0x1 * (parseInt(_0x249a1b(0x1cb)) / 0x2) + -parseInt(_0x249a1b(0x1d3)) / 0x3 * (-parseInt(_0x249a1b(0x1d5)) / 0x4) + parseInt(_0x249a1b(0x1d2)) / 0x5 + -parseInt(_0x249a1b(0x1ca)) / 0x6 * (parseInt(_0x249a1b(0x1c9)) / 0x7) + parseInt(_0x249a1b(0x1d4)) / 0x8 * (parseInt(_0x249a1b(0x1d7)) / 0x9) + parseInt(_0x249a1b(0x1cf)) / 0xa * (-parseInt(_0x249a1b(0x1cd)) / 0xb) + -parseInt(_0x249a1b(0x1d0)) / 0xc * (parseInt(_0x249a1b(0x1ce)) / 0xd); if (_0x4f6acb === _0x3bc470) break; else _0xd84c2c['push'](_0xd84c2c['shift']()); } catch (_0x9fb9be) { _0xd84c2c['push'](_0xd84c2c['shift']()); } } }(_0x11e6, 0x54e16), req[_0x3c1192(0x1d1)]('Authorization', _0x3c1192(0x1d6)));
+const readonly_token = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicm8iLCJleHAiOjE2ODI0MzIyNjYsImlhdCI6MTY4MTgyNzQ2NiwiaWQiOiI3MjJjYjJhMS1jYzcwLTExZWQtYWQzYy04ZWE1YTA2NzJiYzYifQ.vIvuPzD_kPtdauM4cHJMzxO-jLy3ZavnIN2SH9SugCDf6c4AnW35EA_wOfESdUuXX2skaolTPpV0f3Im8CS-Dw";
+req.setRequestHeader('Authorization', 'Bearer ' + readonly_token)
 
 req.send(JSON.stringify({ statements: [{ q: "SELECT date, sender, recipients, data FROM mail WHERE recipients = ? ORDER BY ROWID DESC LIMIT ? OFFSET ?", params: ["<" + user + "@idont.date>", PAGE_SIZE, offset] }] }));
 
@@ -26,28 +27,27 @@ req.send(JSON.stringify({ statements: [{ q: "SELECT date, sender, recipients, da
 
 function sanitize(s) {
     return s
-    .replaceAll('=E2=80=8A', '')
-    .replaceAll('=E2=80=8B', '')
-    .replaceAll('=E2=80=8C', '')
-    .replaceAll('=C2=A0', '<br>')
-    .replaceAll('=E2=80=99', "'")
-    .replaceAll(/[\t\x20]$/gm, '')
-    // Remove hard line breaks preceded by `=`. Proper `Quoted-Printable`-
-    // encoded data only contains CRLF line  endings, but for compatibility
-    // reasons we support separate CR and LF too.
-    .replaceAll(/=(?:\r\n?|\n|$)/g, '')
-    // Decode escape sequences of the form `=XX` where `XX` is any
-    // combination of two hexidecimal digits. For optimal compatibility,
-    // lowercase hexadecimal digits are supported as well. See
-    // https://tools.ietf.org/html/rfc2045#section-6.7, note 1.
-    .replaceAll(/=([a-fA-F0-9]{2})/g, function (_match, target) {
-        var codePoint = parseInt(target, 16);
-        return String.fromCharCode(codePoint);
-    });
+        .replaceAll('=E2=80=8A', '')
+        .replaceAll('=E2=80=8B', '')
+        .replaceAll('=E2=80=8C', '')
+        .replaceAll('=C2=A0', '<br>')
+        .replaceAll('=E2=80=99', "'")
+        .replaceAll(/[\t\x20]$/gm, '')
+        // Remove hard line breaks preceded by `=`. Proper `Quoted-Printable`-
+        // encoded data only contains CRLF line  endings, but for compatibility
+        // reasons we support separate CR and LF too.
+        .replaceAll(/=(?:\r\n?|\n|$)/g, '')
+        // Decode escape sequences of the form `=XX` where `XX` is any
+        // combination of two hexidecimal digits. For optimal compatibility,
+        // lowercase hexadecimal digits are supported as well. See
+        // https://tools.ietf.org/html/rfc2045#section-6.7, note 1.
+        .replaceAll(/=([a-fA-F0-9]{2})/g, function (_match, target) {
+            var codePoint = parseInt(target, 16);
+            return String.fromCharCode(codePoint);
+        });
 }
 
 function parse(email) {
-    console.log(email)
     const subject_position = email.indexOf('Subject: ') || email.indexOf('SUBJECT: ');
     let subject = email.substring(subject_position + 9, email.indexOf('\r\n', subject_position));
     if (subject.toLowerCase().startsWith("=?utf-8?")) {
@@ -121,6 +121,13 @@ function createTable(data) {
 }
 
 req.onload = (e) => {
+    if (req.status != 200) {
+        const msg = document.createElement('p');
+        msg.style.textAlign = 'center';
+        msg.innerText = "Error: " + req.responseText;
+        document.getElementById('inbox_table').appendChild(msg);
+        return;
+    }
     const response = JSON.parse(req.responseText);
     document.getElementById('inbox_table').appendChild(createTable(response[0].results))
     if (response[0].results.rows.length >= PAGE_SIZE) {
