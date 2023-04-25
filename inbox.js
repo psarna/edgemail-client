@@ -19,6 +19,7 @@ req.open("POST", url);
 const readonly_token = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicm8iLCJpYXQiOjE2ODE4MjkxNDMsImlkIjoiNzIyY2IyYTEtY2M3MC0xMWVkLWFkM2MtOGVhNWEwNjcyYmM2In0.T55UgAMs9vP2zMI_AhOiD2AONj_bsnDNRjZiBBWUb2gKU5MEjJoW8uHbtMGqpJ0312SULpsWTWdEJ886oSjGCQ";
 req.setRequestHeader('Authorization', 'Bearer ' + readonly_token)
 
+const req_start = Date.now();
 req.send(JSON.stringify({ statements: [{ q: "SELECT date, sender, recipients, data FROM mail WHERE recipients = ? ORDER BY ROWID DESC LIMIT ? OFFSET ?", params: ["<" + user + "@idont.date>", PAGE_SIZE, offset] }] }));
 
 // Some of these rules are heavily inspired by https://www.npmjs.com/package/quoted-printable:
@@ -137,4 +138,9 @@ req.onload = (e) => {
         };
         next.disabled = false;
     }
+    const req_end = Date.now();
+    const footer = document.createElement('p');
+    footer.style.textAlign = 'center';
+    footer.innerHTML = `<small><i>This inbox was fetched for you straight from the edge in blazing ${req_end - req_start} ms</i></small>`;
+    document.getElementById('inbox_table').appendChild(footer);
 }
