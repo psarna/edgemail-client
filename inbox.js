@@ -49,7 +49,7 @@ function sanitize(s) {
 }
 
 // Check if a string is likely base64 encoded
-function isBase64(str) {
+function isBase64(str, minLength = 50) {
     // Remove whitespace and check if it's a valid base64 string
     const cleanStr = str.replace(/\s/g, '');
     
@@ -58,7 +58,7 @@ function isBase64(str) {
     
     // Check if it contains only valid base64 characters
     const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
-    return base64Regex.test(cleanStr) && cleanStr.length > 50; // Minimum length to avoid false positives
+    return base64Regex.test(cleanStr) && cleanStr.length >= minLength;
 }
 
 // Decode base64 string
@@ -87,6 +87,45 @@ function decodeBase64(str) {
         // If decoding fails, return original string
         return str;
     }
+}
+
+// Decode potentially base64 encoded subject/from fields
+function decodeHeaderField(field) {
+    if (!field) return field;
+    
+    // Handle standard RFC 2047 encoded-word format: =?charset?encoding?encoded-text?=
+    const rfc2047Regex = /=\?([^?]+)\?([BbQq])\?([^?]+)\?=/g;
+    let decoded = field.replace(rfc2047Regex, (match, charset, encoding, encodedText) => {
+        try {
+            if (encoding.toLowerCase() === 'b') {
+                // Base64 encoding
+                return decodeBase64(encodedText);
+            } else if (encoding.toLowerCase() === 'q') {
+                // Quoted-printable encoding
+                return sanitize(encodedText);
+            }
+        } catch (e) {
+            // If decoding fails, return original
+            return match;
+        }
+        return match;
+    });
+    
+    // Also check if the entire field (minus any trailing ?=) looks like base64
+    let cleanField = field.replace(/\?=$/, '').trim();
+    if (isBase64(cleanField, 8)) { // Lower threshold for headers
+        try {
+            const decodedField = decodeBase64(cleanField);
+            // Only use decoded version if it contains readable characters
+            if (decodedField.match(/[a-zA-Z\s]/)) {
+                decoded = decodedField;
+            }
+        } catch (e) {
+            // If decoding fails, keep original
+        }
+    }
+    
+    return decoded;
 }
 
 // Process email content to handle both quoted-printable and base64 encoding
@@ -161,7 +200,10 @@ function parse(email) {
     const subject_position = email.indexOf('Subject: ') || email.indexOf('SUBJECT: ');
     let subject = email.substring(subject_position + 9, email.indexOf('\r\n', subject_position));
     if (subject.toLowerCase().startsWith("=?utf-8?")) {
-        subject = sanitize(subject.substring(10));
+        subject = decodeHeaderField(subject);
+    } else {
+        subject = sanitize(subject);
+
     }
 
     const from_position = email.indexOf('From: ') || email.indexOf('FROM: ');
@@ -170,6 +212,11 @@ function parse(email) {
         .replace(/>/g, "&gt;");
     if (from.toLowerCase().startsWith("=?utf-8?")) {
         from = sanitize(from.substring(10));
+    } else {
+        // Try to decode base64 from fields
+        from = decodeHeaderField(from)
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
     }
 
     const body_position = email.indexOf('<body') || email.indexOf('<BODY') || email.indexOf('\r\n\r\n');
