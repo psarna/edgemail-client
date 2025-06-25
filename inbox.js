@@ -48,6 +48,115 @@ function sanitize(s) {
         });
 }
 
+// Check if a string is likely base64 encoded
+function isBase64(str) {
+    // Remove whitespace and check if it's a valid base64 string
+    const cleanStr = str.replace(/\s/g, '');
+    
+    // Base64 should be divisible by 4 after padding
+    if (cleanStr.length % 4 !== 0) return false;
+    
+    // Check if it contains only valid base64 characters
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    return base64Regex.test(cleanStr) && cleanStr.length > 50; // Minimum length to avoid false positives
+}
+
+// Decode base64 string
+function decodeBase64(str) {
+    try {
+        // Clean up the base64 string
+        const cleanStr = str.replace(/\s/g, '');
+        
+        // Use built-in atob function
+        const decoded = atob(cleanStr);
+        
+        // Try to convert to readable text, handling different encodings
+        let result = '';
+        for (let i = 0; i < decoded.length; i++) {
+            const charCode = decoded.charCodeAt(i);
+            if (charCode < 128) {
+                result += decoded.charAt(i);
+            } else {
+                // For non-ASCII, try to preserve as much as possible
+                result += String.fromCharCode(charCode);
+            }
+        }
+        
+        return result;
+    } catch (e) {
+        // If decoding fails, return original string
+        return str;
+    }
+}
+
+// Process email content to handle both quoted-printable and base64 encoding
+function processEmailContent(content) {
+    // Split content into blocks to handle multiple content sections
+    const blocks = content.split(/(?=Content-Type:|Content-Transfer-Encoding:)/i);
+    let processedContent = '';
+    
+    for (let block of blocks) {
+        if (!block.trim()) continue;
+        
+        // Check for Content-Transfer-Encoding header
+        const encodingMatch = block.match(/Content-Transfer-Encoding:\s*([^\r\n]+)/i);
+        
+        if (encodingMatch) {
+            const encoding = encodingMatch[1].trim().toLowerCase();
+            
+            if (encoding === 'base64') {
+                // Find the actual base64 content (usually after headers)
+                const lines = block.split(/\r?\n/);
+                let contentStarted = false;
+                let base64Content = '';
+                
+                for (let line of lines) {
+                    // Skip headers
+                    if (!contentStarted) {
+                        if (line.trim() === '' || line.match(/^[A-Za-z0-9+/=\s]+$/)) {
+                            contentStarted = true;
+                        }
+                        if (!contentStarted) continue;
+                    }
+                    
+                    // Collect base64 content
+                    if (isBase64(line)) {
+                        base64Content += line;
+                    }
+                }
+                
+                if (base64Content) {
+                    const decoded = decodeBase64(base64Content);
+                    // Check if decoded content looks like text or HTML
+                    if (decoded.includes('<') || decoded.match(/[a-zA-Z]/)) {
+                        processedContent += decoded;
+                    } else {
+                        // If it's binary data (like images), show a placeholder
+                        processedContent += '[Binary content - ' + (encodingMatch[0].match(/name=([^\s;]+)/i)?.[1] || 'attachment') + ']<br>';
+                    }
+                } else {
+                    processedContent += sanitize(block);
+                }
+            } else if (encoding === 'quoted-printable') {
+                processedContent += sanitize(block);
+            } else {
+                // For other encodings or no encoding, just sanitize
+                processedContent += sanitize(block);
+            }
+        } else {
+            // No encoding specified, check if it looks like base64 anyway
+            if (isBase64(block)) {
+                const decoded = decodeBase64(block);
+                processedContent += decoded;
+            } else {
+                processedContent += sanitize(block);
+            }
+        }
+    }
+    
+    return processedContent || sanitize(content);
+}
+
 function parse(email) {
     const subject_position = email.indexOf('Subject: ') || email.indexOf('SUBJECT: ');
     let subject = email.substring(subject_position + 9, email.indexOf('\r\n', subject_position));
@@ -64,7 +173,10 @@ function parse(email) {
     }
 
     const body_position = email.indexOf('<body') || email.indexOf('<BODY') || email.indexOf('\r\n\r\n');
-    const body = sanitize(email.substring(body_position))
+    const rawBody = email.substring(body_position);
+    
+    // Process the body content to handle base64 and other encodings
+    const body = processEmailContent(rawBody);
 
     return [from, subject, body];
 }
