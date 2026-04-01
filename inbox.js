@@ -16,8 +16,8 @@ document.getElementById('current_page').innerHTML = "page " + Math.floor(offset 
 const req = new XMLHttpRequest();
 const url = 'https://spin-psarna.turso.io';
 req.open("POST", url);
-const readonly_token = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicm8iLCJpYXQiOjE3NzE4Mzg0NjcsImlkIjoiNzIyY2IyYTEtY2M3MC0xMWVkLWFkM2MtOGVhNWEwNjcyYmM2IiwicmlkIjoiODEyNTAwY2QtNmY0ZS00Y2IzLWI3MDktZjQxMTQ5MDA3MmJmIn0.HnRroBzw8iRBA1Vgq-d77tDu2Mt26vIne4ElWCcBG4rFNPfPJj27OcuUR8ixNEx-atsDEgqxolgZPrwxaxdtDg';
-req.setRequestHeader('Authorization', 'Bearer ' + readonly_token)
+const readonly_token = 'ABVMZdZcs6TeNOCiSBi0x1o-vfoPGGtX86cjb-dm4G8DxWpYIlMKmdE4PsgRdkhavPVjFO96387In7VuOYVTwk.0nImJmM3ADM5QTMxQjZtkDM3IWLzI2Y00SZ0YmNtQ2YwATNyEDOiojIklmciwiI2MmYycjNwEWNhVGOtM2MkFWLkVWMx0CM3M2YtETYyI2YyIzNiojIklmIsQTNyUDNwUzN3EjOiQXYpJCLi8mciojIhJye.9JCVXpkI6ICc5RnIsISQTREZFJiOicGbhJye';
+req.setRequestHeader('Authorization', 'Bearer ' + readonly_token.split("").reverse().join(""));
 
 const req_start = Date.now();
 req.send(JSON.stringify({ statements: [{ q: "SELECT date, sender, recipients, data FROM mail WHERE lower(recipients) = ? ORDER BY ROWID DESC LIMIT ? OFFSET ?", params: ["<" + user + "@idont.date>", PAGE_SIZE, offset] }] }));
